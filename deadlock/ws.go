@@ -14,6 +14,8 @@ var upgrader = websocket.Upgrader{
 type Client struct {
 	conn      *websocket.Conn
 	writeChan chan []byte
+
+	IsClosed bool
 }
 
 func newClient(conn *websocket.Conn) *Client {
@@ -43,6 +45,7 @@ func (c *Client) read() {
 }
 
 func (c *Client) write() {
+
 	defer c.conn.Close()
 
 	defer func() {
@@ -50,6 +53,10 @@ func (c *Client) write() {
 		for i := 0; i < n; i++ {
 			<-c.writeChan
 		}
+	}()
+	defer func() {
+		// TODO: 需要加锁
+		c.IsClosed = true
 	}()
 
 	for {

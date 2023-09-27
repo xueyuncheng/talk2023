@@ -26,6 +26,8 @@ func getSite3(file string, siteChan chan string) error {
 		os.Exit(1)
 	}
 
+	close(siteChan)
+
 	return nil
 }
 

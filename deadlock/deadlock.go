@@ -3,12 +3,16 @@ package main
 import (
 	"log/slog"
 	"net/http"
+	"os"
 	"sync"
 )
 
 func main() {
 	initRoute()
-	http.ListenAndServe(":8080", nil)
+	if err := http.ListenAndServe(":8090", nil); err != nil {
+		slog.Error("http.ListenAndServe() error", "err", err)
+		os.Exit(1)
+	}
 }
 
 func initRoute() {
@@ -24,7 +28,7 @@ func initRoute() {
 	})
 
 	m := make(map[*Client]bool)
-	l := &sync.Mutex{}
+	mlock := &sync.Mutex{}
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -33,19 +37,22 @@ func initRoute() {
 		}
 
 		client := newClient(conn)
-		l.Lock()
+		mlock.Lock()
 		m[client] = true
-		l.Unlock()
+		mlock.Unlock()
 	})
 
 	go func() {
 		for {
 			id := <-ch
-			l.Lock()
+			mlock.Lock()
 			for c := range m {
+				if c.IsClosed {
+					continue
+				}
 				c.writeChan <- []byte(id)
 			}
-			l.Unlock()
+			mlock.Unlock()
 		}
 	}()
 }
